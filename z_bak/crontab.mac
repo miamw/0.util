@@ -1,0 +1,2 @@
+0 11 * * 1-5 open http://addresseeglee.corp.sg3.yahoo.com/
+0 0 * * 1-5 work_dir="/Users/mengwang/Work/bin";sh -x $work_dir/back.sh &>$work_dir/log.back

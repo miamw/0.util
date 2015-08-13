@@ -1,0 +1,377 @@
+-- Get Count
+DEFINE getCount(IN) RETURNS OUT {
+        $OUT = GROUP $IN ALL;
+        $OUT = FOREACH $OUT GENERATE
+        	COUNT($IN) AS cnt;    	
+};
+
+-- Control name space
+DEFINE ctrlNamespace(IN, fld) RETURNS OUT {
+	$OUT = GROUP $IN BY ($fld);
+	$OUT = FOREACH $OUT GENERATE FLATTEN($IN);
+};
+
+-- Get feature to sketch
+DEFINE feaToSketch(IN, dim) RETURNS OUT {
+
+	-- Get fields needed
+	TRIM = FOREACH $IN {	
+		timestamp = (double)(logged_event_timestamp IS NULL?-1:logged_event_timestamp/1000);
+		bcookie_age = (bcookie_age IS NULL?-1:bcookie_age);
+
+		active_10m = (long)(timestamp/600);
+		is_new = ((bcookie_age>=0 AND bcookie_age/300<=1)?1:0);
+		is_login = ((is_logged_in IS NOT NULL AND is_logged_in==true)?1:0);
+
+		GENERATE	
+			ip_address AS ip,
+			bcookie,
+			sid,
+			user_agent AS ua,
+			os_name AS os,
+			browser_name AS browser,
+			spaceid,
+			page_uri AS uri,
+			page_search_term AS term,
+			active_10m,
+			is_new,
+			is_login,
+			timestamp;
+	}
+
+	-- Calculate Features
+	FEA = GROUP TRIM BY $dim;
+	FEA = FOREACH FEA {
+		active_10m = DISTINCT TRIM.active_10m;
+
+		TRIM_SORTED = ORDER TRIM BY timestamp ASC;
+	
+		skt_ip = dataToSketch(TRIM.ip);
+		skt_bcookie = dataToSketch(TRIM.bcookie);
+		skt_sid = dataToSketch(TRIM.sid);
+		skt_ua = dataToSketch(TRIM.ua);
+		skt_os = dataToSketch(TRIM.os);
+		skt_browser = dataToSketch(TRIM.browser);
+		skt_spaceid = dataToSketch(TRIM.spaceid);
+		skt_uri = dataToSketch(TRIM.uri);
+		skt_term = dataToSketch(TRIM.term);	
+
+		GENERATE
+			group AS dim,
+			COUNT(TRIM) AS trf,
+			COUNT(active_10m) AS active_10m,
+			SUM(TRIM.is_new) AS trf_new,
+			SUM(TRIM.is_login) AS trf_login,
+			FLATTEN(getTimeGap(TRIM_SORTED.timestamp)) AS (gap_cnt:long, gap_avg:double, gap_sd:double, gap_cv:double),
+			FLATTEN(skt_ip) AS skt_ip,
+			FLATTEN(skt_bcookie) AS skt_bcookie,
+			FLATTEN(skt_sid) AS skt_sid,
+			FLATTEN(skt_ua) AS skt_ua,
+			FLATTEN(skt_os) AS skt_os,
+			FLATTEN(skt_browser) AS skt_browser,
+			FLATTEN(skt_spaceid) AS skt_spaceid,
+			FLATTEN(skt_uri) AS skt_uri,
+			FLATTEN(skt_term) AS skt_term;
+	}
+
+	$OUT = FOREACH FEA {
+		cnt_ip = estimate(skt_ip);
+		cnt_bcookie = estimate(skt_bcookie);
+		cnt_sid = estimate(skt_sid);
+		cnt_ua = estimate(skt_ua);
+		cnt_os = estimate(skt_os);
+		cnt_browser = estimate(skt_browser);
+		cnt_spaceid = estimate(skt_spaceid);
+		cnt_uri = estimate(skt_uri);
+		cnt_term = estimate(skt_term);
+
+		GENERATE
+			dim AS dim,
+			trf AS trf,
+			active_10m AS active_10m,
+			trf_new AS trf_new,
+			trf_login AS trf_login,
+			(trf_new*1.0/trf) AS rate_new_trf,
+			(trf_login*1.0/trf) AS rate_login_trf,
+			gap_cnt AS gap_cnt,
+			gap_avg AS gap_avg,
+			gap_sd AS gap_sd,
+			gap_cv AS gap_cv,
+			cnt_ip AS cnt_ip,
+			cnt_bcookie AS cnt_bcookie,
+			cnt_sid AS cnt_sid,
+			cnt_ua AS cnt_ua,
+			cnt_os AS cnt_os,
+			cnt_browser AS cnt_browser,
+			cnt_spaceid AS cnt_spaceid,
+			cnt_uri AS cnt_uri,
+			cnt_term AS cnt_term,
+			(cnt_ip==0?(trf*1.0):(trf*1.0/cnt_ip)) AS div_ip,
+			(cnt_bcookie==0?(trf*1.0):(trf*1.0/cnt_bcookie)) AS div_bcookie,
+			(cnt_sid==0?(trf*1.0):(trf*1.0/cnt_sid)) AS div_sid,
+			(cnt_ua==0?(trf*1.0):(trf*1.0/cnt_ua)) AS div_ua,
+			(cnt_os==0?(trf*1.0):(trf*1.0/cnt_os)) AS div_os,
+			(cnt_browser==0?(trf*1.0):(trf*1.0/cnt_browser)) AS div_browser,
+			(cnt_spaceid==0?(trf*1.0):(trf*1.0/cnt_spaceid)) AS div_spaceid,
+			(cnt_uri==0?(trf*1.0):(trf*1.0/cnt_uri)) AS div_uri,
+			(cnt_term==0?(trf*1.0):(trf*1.0/cnt_term)) AS div_term,
+			toBase64(skt_ip) AS skt_ip,
+			toBase64(skt_bcookie) AS skt_bcookie,
+			toBase64(skt_sid) AS skt_sid,
+			toBase64(skt_ua) AS skt_ua,
+			toBase64(skt_os) AS skt_os,
+			toBase64(skt_browser) AS skt_browser,
+			toBase64(skt_spaceid) AS skt_spaceid,
+			toBase64(skt_uri) AS skt_uri,
+			toBase64(skt_term) AS skt_term;
+	}
+};
+
+DEFINE feaAggSketch(IN) RETURNS OUT {
+	FEA = FOREACH $IN GENERATE
+		dim,
+		trf,
+		active_10m,
+		trf_new,
+		trf_login,
+		rate_new_trf,
+		rate_login_trf,
+		gap_cnt,
+		gap_avg,
+		gap_sd,
+		gap_cv,
+		cnt_ip,
+		cnt_bcookie,
+		cnt_sid,
+		cnt_ua,
+		cnt_os,
+		cnt_browser,
+		cnt_spaceid,
+		cnt_uri,
+		cnt_term,
+		div_ip,
+		div_bcookie,
+		div_sid,
+		div_ua,
+		div_os,
+		div_browser,
+		div_spaceid,
+		div_uri,
+		div_term,
+		toByte(skt_ip) AS skt_ip:bytearray,
+		toByte(skt_bcookie) AS skt_bcookie:bytearray,
+		toByte(skt_sid) AS skt_sid:bytearray,
+		toByte(skt_ua) AS skt_ua:bytearray,
+		toByte(skt_os) AS skt_os:bytearray,
+		toByte(skt_browser) AS skt_browser:bytearray,
+		toByte(skt_spaceid) AS skt_spaceid:bytearray,
+		toByte(skt_uri) AS skt_uri:bytearray,
+		toByte(skt_term) AS skt_term:bytearray;
+
+	SKT = GROUP FEA BY dim;
+	SKT = FOREACH SKT {
+		skt_ip = merge_sketch(FEA.skt_ip);
+		skt_bcookie = merge_sketch(FEA.skt_bcookie);
+		skt_sid = merge_sketch(FEA.skt_sid);
+		skt_ua = merge_sketch(FEA.skt_ua);
+		skt_os = merge_sketch(FEA.skt_os);
+		skt_browser = merge_sketch(FEA.skt_browser);
+		skt_spaceid = merge_sketch(FEA.skt_spaceid);
+		skt_uri = merge_sketch(FEA.skt_uri);
+		skt_term = merge_sketch(FEA.skt_term);
+	
+		GENERATE
+			group AS dim,
+			SUM(FEA.trf) AS trf,
+			SUM(FEA.active_10m) AS active_10m,
+			COUNT(FEA) AS active_hr,
+			SUM(FEA.trf_new) AS trf_new,
+			SUM(FEA.trf_login) AS trf_login,
+    			FLATTEN(skt_ip) AS skt_ip,
+			FLATTEN(skt_bcookie) AS skt_bcookie,
+			FLATTEN(skt_sid) AS skt_sid,
+			FLATTEN(skt_ua) AS skt_ua,
+			FLATTEN(skt_os) AS skt_os,
+			FLATTEN(skt_browser) AS skt_browser,
+			FLATTEN(skt_spaceid) AS skt_spaceid,
+			FLATTEN(skt_uri) AS skt_uri,
+			FLATTEN(skt_term) AS skt_term;
+	}
+
+	SKT = FOREACH SKT {
+		cnt_ip = estimate(skt_ip);
+		cnt_bcookie = estimate(skt_bcookie);
+		cnt_sid = estimate(skt_sid);
+		cnt_ua = estimate(skt_ua);
+		cnt_os = estimate(skt_os);
+		cnt_browser = estimate(skt_browser);
+		cnt_spaceid = estimate(skt_spaceid);
+		cnt_uri = estimate(skt_uri);
+		cnt_term = estimate(skt_term);
+
+		GENERATE
+			dim AS dim,
+			trf AS trf,
+			active_10m AS active_10m,
+			active_hr AS active_hr,
+			trf_new AS trf_new,
+			trf_login AS trf_login,
+			(trf_new*1.0/trf) AS rate_new_trf,
+			(trf_login*1.0/trf) AS rate_login_trf,
+			cnt_ip AS cnt_ip,
+			cnt_bcookie AS cnt_bcookie,
+			cnt_sid AS cnt_sid,
+			cnt_ua AS cnt_ua,
+			cnt_os AS cnt_os,
+			cnt_browser AS cnt_browser,
+			cnt_spaceid AS cnt_spaceid,
+			cnt_uri AS cnt_uri,
+			cnt_term AS cnt_term,
+			(cnt_ip==0?(trf*1.0):(trf*1.0/cnt_ip)) AS div_ip,
+			(cnt_bcookie==0?(trf*1.0):(trf*1.0/cnt_bcookie)) AS div_bcookie,
+			(cnt_sid==0?(trf*1.0):(trf*1.0/cnt_sid)) AS div_sid,
+			(cnt_ua==0?(trf*1.0):(trf*1.0/cnt_ua)) AS div_ua,
+			(cnt_os==0?(trf*1.0):(trf*1.0/cnt_os)) AS div_os,
+			(cnt_browser==0?(trf*1.0):(trf*1.0/cnt_browser)) AS div_browser,
+			(cnt_spaceid==0?(trf*1.0):(trf*1.0/cnt_spaceid)) AS div_spaceid,
+			(cnt_uri==0?(trf*1.0):(trf*1.0/cnt_uri)) AS div_uri,
+			(cnt_term==0?(trf*1.0):(trf*1.0/cnt_term)) AS div_term;
+	}
+
+	UDF = GROUP FEA BY dim;
+	UDF = FOREACH UDF GENERATE
+		group AS dim,
+		FLATTEN(getMeanSdCv(FEA.trf)) AS (avg_trf:double, sd_trf:double, cv_trf:double),
+		FLATTEN(getMeanSdCv(FEA.active_10m)) AS (avg_active_10m:double, sd_active_10m:double, cv_active_10m:double),
+		FLATTEN(getMeanSdCv(FEA.rate_new_trf)) AS (avg_rate_new_trf:double, sd_rate_new_trf:double, cv_rate_new_trf:double),
+		FLATTEN(getMeanSdCv(FEA.rate_login_trf)) AS (avg_rate_login_trf:double, sd_rate_login_trf:double, cv_rate_login_trf:double),
+		FLATTEN(getMeanSdCv(FEA.gap_cnt)) AS (avg_gap_cnt:double, sd_gap_cnt:double, cv_gap_cnt:double),
+		FLATTEN(getMeanSdCv(FEA.gap_avg)) AS (avg_gap_avg:double, sd_gap_avg:double, cv_gap_avg:double),
+		FLATTEN(getMeanSdCv(FEA.gap_sd)) AS (avg_gap_sd:double, sd_gap_sd:double, cv_gap_sd:double),
+		FLATTEN(getMeanSdCv(FEA.gap_cv)) AS (avg_gap_cv:double, sd_gap_cv:double, cv_gap_cv:double),
+		FLATTEN(getMeanSdCv(FEA.cnt_ip)) AS (avg_cnt_ip:double, sd_cnt_ip:double, cv_cnt_ip:double),
+		FLATTEN(getMeanSdCv(FEA.cnt_bcookie)) AS (avg_cnt_bcookie:double, sd_cnt_bcookie:double, cv_cnt_bcookie:double),
+		FLATTEN(getMeanSdCv(FEA.cnt_sid)) AS (avg_cnt_sid:double, sd_cnt_sid:double, cv_cnt_sid:double),
+		FLATTEN(getMeanSdCv(FEA.cnt_ua)) AS (avg_cnt_ua:double, sd_cnt_ua:double, cv_cnt_ua:double),
+		FLATTEN(getMeanSdCv(FEA.cnt_os)) AS (avg_cnt_os:double, sd_cnt_os:double, cv_cnt_os:double),
+		FLATTEN(getMeanSdCv(FEA.cnt_browser)) AS (avg_cnt_browser:double, sd_cnt_browser:double, cv_cnt_browser:double),
+		FLATTEN(getMeanSdCv(FEA.cnt_spaceid)) AS (avg_cnt_spaceid:double, sd_cnt_spaceid:double, cv_cnt_spaceid:double),
+		FLATTEN(getMeanSdCv(FEA.cnt_uri)) AS (avg_cnt_uri:double, sd_cnt_uri:double, cv_cnt_uri:double),
+		FLATTEN(getMeanSdCv(FEA.cnt_term)) AS (avg_cnt_term:double, sd_cnt_term:double, cv_cnt_term:double),
+		FLATTEN(getMeanSdCv(FEA.div_ip)) AS (avg_div_ip:double, sd_div_ip:double, cv_div_ip:double),
+		FLATTEN(getMeanSdCv(FEA.div_bcookie)) AS (avg_div_bcookie:double, sd_div_bcookie:double, cv_div_bcookie:double),
+		FLATTEN(getMeanSdCv(FEA.div_sid)) AS (avg_div_sid:double, sd_div_sid:double, cv_div_sid:double),
+		FLATTEN(getMeanSdCv(FEA.div_ua)) AS (avg_div_ua:double, sd_div_ua:double, cv_div_ua:double),
+		FLATTEN(getMeanSdCv(FEA.div_os)) AS (avg_div_os:double, sd_div_os:double, cv_div_os:double),
+		FLATTEN(getMeanSdCv(FEA.div_browser)) AS (avg_div_browser:double, sd_div_browser:double, cv_div_browser:double),
+		FLATTEN(getMeanSdCv(FEA.div_spaceid)) AS (avg_div_spaceid:double, sd_div_spaceid:double, cv_div_spaceid:double),
+		FLATTEN(getMeanSdCv(FEA.div_uri)) AS (avg_div_uri:double, sd_div_uri:double, cv_div_uri:double),
+		FLATTEN(getMeanSdCv(FEA.div_term)) AS (avg_div_term:double, sd_div_term:double, cv_div_term:double);
+
+	$OUT = JOIN SKT BY dim, UDF BY dim;
+	$OUT = FOREACH $OUT GENERATE
+		SKT::dim AS dim,
+		trf AS trf,
+		active_10m AS active_10m,
+		active_hr AS active_hr,
+		trf_new AS trf_new,
+		trf_login AS trf_login,
+		rate_new_trf AS rate_new_trf,
+		rate_login_trf AS rate_login_trf,
+		cnt_ip AS cnt_ip,
+		cnt_bcookie AS cnt_bcookie,
+		cnt_sid AS cnt_sid,
+		cnt_ua AS cnt_ua,
+		cnt_os AS cnt_os,
+		cnt_browser AS cnt_browser,
+		cnt_spaceid AS cnt_spaceid,
+		cnt_uri AS cnt_uri,
+		cnt_term AS cnt_term,
+		div_ip AS div_ip,
+		div_bcookie AS div_bcookie,
+		div_sid AS div_sid,
+		div_ua AS div_ua,
+		div_os AS div_os,
+		div_browser AS div_browser,
+		div_spaceid AS div_spaceid,
+		div_uri AS div_uri,
+		div_term AS div_term,
+		avg_trf AS avg_trf,
+		sd_trf AS sd_trf,
+		cv_trf AS cv_trf,
+		avg_active_10m AS avg_active_10m,
+		sd_active_10m AS sd_active_10m,
+		cv_active_10m AS cv_active_10m,
+		avg_rate_new_trf AS avg_rate_new_trf,
+		sd_rate_new_trf AS sd_rate_new_trf,
+		cv_rate_new_trf AS cv_rate_new_trf,
+		avg_rate_login_trf AS avg_rate_login_trf,
+		sd_rate_login_trf AS sd_rate_login_trf,
+		cv_rate_login_trf AS cv_rate_login_trf,
+		avg_gap_cnt AS avg_gap_cnt,
+		sd_gap_cnt AS sd_gap_cnt,
+		cv_gap_cnt AS cv_gap_cnt,
+		avg_gap_avg AS avg_gap_avg,
+		sd_gap_avg AS sd_gap_avg,
+		cv_gap_avg AS cv_gap_avg,
+		avg_gap_sd AS avg_gap_sd,
+		sd_gap_sd AS sd_gap_sd,
+		cv_gap_sd AS cv_gap_sd,
+		avg_gap_cv AS avg_gap_cv,
+		sd_gap_cv AS sd_gap_cv,
+		cv_gap_cv AS cv_gap_cv,
+		avg_cnt_ip AS avg_cnt_ip,
+		sd_cnt_ip AS sd_cnt_ip,
+		cv_cnt_ip AS cv_cnt_ip,
+		avg_cnt_bcookie AS avg_cnt_bcookie,
+		sd_cnt_bcookie AS sd_cnt_bcookie,
+		cv_cnt_bcookie AS cv_cnt_bcookie,
+		avg_cnt_sid AS avg_cnt_sid,
+		sd_cnt_sid AS sd_cnt_sid,
+		cv_cnt_sid AS cv_cnt_sid,
+		avg_cnt_ua AS avg_cnt_ua,
+		sd_cnt_ua AS sd_cnt_ua,
+		cv_cnt_ua AS cv_cnt_ua,
+		avg_cnt_os AS avg_cnt_os,
+		sd_cnt_os AS sd_cnt_os,
+		cv_cnt_os AS cv_cnt_os,
+		avg_cnt_browser AS avg_cnt_browser,
+		sd_cnt_browser AS sd_cnt_browser,
+		cv_cnt_browser AS cv_cnt_browser,
+		avg_cnt_spaceid AS avg_cnt_spaceid,
+		sd_cnt_spaceid AS sd_cnt_spaceid,
+		cv_cnt_spaceid AS cv_cnt_spaceid,
+		avg_cnt_uri AS avg_cnt_uri,
+		sd_cnt_uri AS sd_cnt_uri,
+		cv_cnt_uri AS cv_cnt_uri,
+		avg_cnt_term AS avg_cnt_term,
+		sd_cnt_term AS sd_cnt_term,
+		cv_cnt_term AS cv_cnt_term,
+		avg_div_ip AS avg_div_ip,
+		sd_div_ip AS sd_div_ip,
+		cv_div_ip AS cv_div_ip,
+		avg_div_bcookie AS avg_div_bcookie,
+		sd_div_bcookie AS sd_div_bcookie,
+		cv_div_bcookie AS cv_div_bcookie,
+		avg_div_sid AS avg_div_sid,
+		sd_div_sid AS sd_div_sid,
+		cv_div_sid AS cv_div_sid,
+		avg_div_ua AS avg_div_ua,
+		sd_div_ua AS sd_div_ua,
+		cv_div_ua AS cv_div_ua,
+		avg_div_os AS avg_div_os,
+		sd_div_os AS sd_div_os,
+		cv_div_os AS cv_div_os,
+		avg_div_browser AS avg_div_browser,
+		sd_div_browser AS sd_div_browser,
+		cv_div_browser AS cv_div_browser,
+		avg_div_spaceid AS avg_div_spaceid,
+		sd_div_spaceid AS sd_div_spaceid,
+		cv_div_spaceid AS cv_div_spaceid,
+		avg_div_uri AS avg_div_uri,
+		sd_div_uri AS sd_div_uri,
+		cv_div_uri AS cv_div_uri,
+		avg_div_term AS avg_div_term,
+		sd_div_term AS sd_div_term,
+		cv_div_term AS cv_div_term;
+};
