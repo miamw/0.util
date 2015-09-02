@@ -1,0 +1,34 @@
+# .bash_profile
+
+# Get the aliases and functions
+if [ -f ~/.bashrc ]; then
+	. ~/.bashrc
+fi
+
+# Export
+PATH=$PATH:$HOME/bin
+export PATH
+export LC_ALL=C
+export BLAS=/usr/local/BLAS/libblas.a
+export LAPACK=/usr/local/lapack/lapack_LINUX.a
+export ATLAS=/usr/local/ATLAS/ATLAS_LINUX/lib/libatlas.a
+export LD_LIBRARY_PATH=/usr/local/ATLAS/ATLAS_LINUX/lib:$LD_LIBRARY_PATH
+
+# Alias
+alias hd='hadoop fs'
+alias hstream='hadoop jar /usr/local/hadoop-1.0.4/contrib/streaming/hadoop-streaming-1.0.4.jar'
+alias rsync='rsync -auP --port 30873'
+alias mongo='/opt/mongodb/bin/mongo'
+
+# Connection
+s54='root@172.18.100.54'
+s55='root@172.18.100.55'
+s115='root@172.18.100.115'
+s247='root@59.151.113.247'
+ufs37='wangmeng@q-s-04.opera-mini.net'
+nh604='root@z01.oupeng.com'
+
+d54="$s54:/root/mw"
+d55="$s55:/root/mw"
+d115="$s55:/root/mw"
+d247="$s247:/user/mw"
