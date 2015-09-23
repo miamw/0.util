@@ -1,4 +1,25 @@
+# ************************** Streaming **************************
+
+# Run python
+function run_py() {
+	_db=$1
+	_f=$2
+	_param=$3
+	_import=$4
+
+	python -c "from $_db import $_import $_f; $_f($_param)"
+}
+
 # ************************** Data Format **************************
+
+# Download data from hdfs(Need: $hdfs_dir, $local_dir)
+function dl_hdfs() {
+	_f=$1
+	_dt=$2
+
+	hd -cat $hdfs_dir/$_f/dt=$_dt/* > $local_dir/$_f.$_dt
+}
+
 
 function getDateForm()
 {
@@ -51,16 +72,16 @@ function getTimeList()
 			timeString="$timeString,$timeStamp"
 		done
 	elif [[ $timeStart =~ ^20[0-9][0-9][01][0-9][0-3][0-9][0-2][0-9]$ ]]
-        then
-        	for((i=$timeStart1+3600;i<=$timeEnd1;i+=3600))
-        	do
-        		timeStamp=`date -d "@$i" +%Y%m%d%H`
-        		timeString="$timeString,$timeStamp"
-        	done
+	then
+		for((i=$timeStart1+3600;i<=$timeEnd1;i+=3600))
+		do
+			timeStamp=`date -d "@$i" +%Y%m%d%H`
+			timeString="$timeString,$timeStamp"
+		done
 	elif [[ $timeStart =~ ^20[0-9][0-9][01][0-9][0-3][0-9][0-2][0-9][0-5][05]$ ]]
 	then
 		for((i=$timeStart1+300;i<=$timeEnd1;i+=300))
-		do                                           	
+		do					   	
 			timeStamp=`date -d "@$i" +%Y%m%d%H%M`
 			timeString="$timeString,$timeStamp"  	
 		done
@@ -115,7 +136,7 @@ function handleSlash()
 		echo $input | sed 's/\//\\\//g'
 	else
 		echo $input
-	fi                                 	
+	fi				 	
 }
 
 # transform time from number to : :
@@ -496,19 +517,19 @@ function ipConvert() {
 			ret=ret"."ip10[i]
 		return ret
 	}function ip2int(ip) {
-	        ret=0
-	        n=split(ip,a,".")
-	        for(x=1;x<=n;x++)
+		ret=0
+		n=split(ip,a,".")
+		for(x=1;x<=n;x++)
 			ret=or(lshift(ret,8),a[x])
-	        return ret
+		return ret
 	}function int2ip(ip) {
-	        ret=and(ip,255)
-	        ip=rshift(ip,8)
-	        for(x=0;x<3;x++) {
+		ret=and(ip,255)
+		ip=rshift(ip,8)
+		for(x=0;x<3;x++) {
 			ret=and(ip,255)"."ret
 			ip=rshift(ip,8)
 		}
-	        return ret
+		return ret
 	}{
 		if("'$tran_type'"==1) {
 			ip=getSubnetC($'$l_fld')
