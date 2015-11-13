@@ -9,6 +9,7 @@ fi
 PATH=$PATH:$HOME/bin
 export PATH
 export LC_ALL=C
+export PYTHONIOENCODING=utf-8
 export BLAS=/usr/local/BLAS/libblas.a
 export LAPACK=/usr/local/lapack/lapack_LINUX.a
 export ATLAS=/usr/local/ATLAS/ATLAS_LINUX/lib/libatlas.a
@@ -30,5 +31,5 @@ nh604='root@z01.oupeng.com'
 
 d54="$s54:/root/mw"
 d55="$s55:/root/mw"
-d115="$s55:/root/mw"
+d115="$s115:/root/mw"
 d247="$s247:/user/mw"
