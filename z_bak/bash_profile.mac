@@ -2,6 +2,7 @@
 export CLICOLOR=1
 
 # Environment
+ssh-add ~/.ssh/id_rsa
 alias ll='ls -l'
 cd ~/Work/workspace
 
@@ -9,10 +10,14 @@ cd ~/Work/workspace
 s54='root@172.18.100.54'
 s55='root@172.18.100.55'
 s115='root@172.18.100.115'
+s217='mengwang@123.103.8.217'
+# Hadoop
 s247='root@59.151.113.247'
 s221='root@59.151.113.221'
+
+# Online Server
 ufs37='wangmeng@q-s-04.opera-mini.net'
-nh604='root@z01.oupeng.com'
+nh604='mengwang@z01.oupeng.com'
 
 d54="$s54:/root/mw"
 d55="$s55:/root/mw"
