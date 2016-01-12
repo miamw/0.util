@@ -1,0 +1,19 @@
+Host *
+	ForwardAgent yes
+
+Host s217
+	HostName	123.103.8.217
+	User	mengwang
+Host s32
+	HostName	192.168.12.32
+	User	root
+	ProxyCommand	ssh s217 ncat %h %p
+
+Host s248
+	HostName	59.151.113.248
+	User	mengwang
+Host s100
+	HostName	192.168.1.100
+	User root
+	ProxyCommand	ssh s248 nc %h %p
+

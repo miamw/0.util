@@ -6,23 +6,16 @@ ssh-add ~/.ssh/id_rsa
 alias ll='ls -l'
 cd ~/Work/workspace
 
-# Connection
+# Test
 s54='root@172.18.100.54'
 s55='root@172.18.100.55'
 s115='root@172.18.100.115'
-s217='mengwang@123.103.8.217'
 # Hadoop
 s247='root@59.151.113.247'
-s221='root@59.151.113.221'
-
+s221='root@59.151.113.221'	# log for 247
 # Online Server
 ufs37='wangmeng@q-s-04.opera-mini.net'
 nh604='mengwang@z01.oupeng.com'
-
-d54="$s54:/root/mw"
-d55="$s55:/root/mw"
-d115="$s55:/root/mw"
-d247="$s247:/user/mw"
 
 # Export
 export PATH="/opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/:/Library/Frameworks/Python.framework/Versions/3.4/bin:${PATH}"
