@@ -1,5 +1,7 @@
 Host *
 	ForwardAgent yes
+	ForwardX11Trusted yes
+	StrictHostKeyChecking no
 
 Host s217
 	HostName	123.103.8.217
@@ -14,6 +16,18 @@ Host s248
 	User	mengwang
 Host s100
 	HostName	192.168.1.100
-	User root
+	User	root
 	ProxyCommand	ssh s248 nc %h %p
 
+Host ar
+	HostName	ar.opera.org.cn
+	User	sdev
+Host aws
+	HostName	aws.opera.org.cn
+	User	mengw
+	ProxyCommand	ssh ar nc %h %p
+
+Host long
+	HostName	172.31.11.23
+	User	ec2-user
+	ProxyCommand	ssh aws nc %h %p
