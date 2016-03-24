@@ -21,3 +21,5 @@ nh604='mengwang@z01.oupeng.com'
 export PATH="/opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/:/Library/Frameworks/Python.framework/Versions/3.4/bin:${PATH}"
 export PATH="/opt/local/bin:/opt/local/sbin:$PATH"
 export PATH="/usr/local/share/python:$PATH"
+SCALA_HOME="/usr/local/share/scala-2.10.5"
+export PATH=$PATH:$SCALA_HOME/bin
