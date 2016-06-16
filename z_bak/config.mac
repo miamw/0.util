@@ -3,22 +3,16 @@ Host *
 	ForwardX11Trusted yes
 	StrictHostKeyChecking no
 
-Host s217
+Host j79
+	HostName	52.9.245.79
+	User	mengw
+Host j217
 	HostName	123.103.8.217
 	User	mengwang
-Host s32
-	HostName	192.168.12.32
-	User	root
-	ProxyCommand	ssh s217 ncat %h %p
-
-Host s248
+Host j248
 	HostName	59.151.113.248
 	User	mengwang
-Host s100
-	HostName	192.168.1.100
-	User	root
-	ProxyCommand	ssh s248 nc %h %p
-
+# Japan
 Host ar
 	HostName	ar.opera.org.cn
 	User	sdev
@@ -26,8 +20,34 @@ Host aws
 	HostName	aws.opera.org.cn
 	User	mengw
 	ProxyCommand	ssh ar nc %h %p
+# 
+Host s32
+	HostName	192.168.12.32
+	User	root
+	ProxyCommand	ssh j217 ncat %h %p
 
+# Data HDFS
+Host s100
+	HostName	192.168.1.100
+	User	root
+	ProxyCommand	ssh j248 nc %h %p
+
+# Social Crawler
 Host long
 	HostName	172.31.11.23
+	User	ec2-user
+	ProxyCommand	ssh aws nc %h %p
+
+# Social Log
+Host s78
+	HostName	172.31.0.78
+	User	ec2-user
+	ProxyCommand	ssh aws nc %h %p
+Host s79
+	HostName	172.31.0.79 
+	User	ec2-user
+	ProxyCommand	ssh aws nc %h %p
+Host s22
+	HostName	172.31.14.22
 	User	ec2-user
 	ProxyCommand	ssh aws nc %h %p
